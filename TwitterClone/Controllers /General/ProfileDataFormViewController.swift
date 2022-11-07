@@ -7,7 +7,7 @@
 
 import Foundation
 import UIKit
-
+import PhotosUI
 
 class ProfileDataFormViewController: UIViewController {
     
@@ -68,8 +68,42 @@ class ProfileDataFormViewController: UIViewController {
         imageView.image = UIImage(systemName: "camera.fill")
         imageView.tintColor = .gray
         imageView.isUserInteractionEnabled = true
-        imageView.contentMode = .scaleAspectFit
+        imageView.contentMode = .scaleAspectFill
         return imageView
+    }()
+    
+    private let bioTextView: UITextView = {
+        let textView = UITextView()
+        textView.translatesAutoresizingMaskIntoConstraints = false
+        textView.backgroundColor = .secondarySystemFill
+        textView.layer.masksToBounds = true
+        textView.layer.cornerRadius = 8
+        textView.textContainerInset = .init(top: 15, left: 15, bottom: 15, right: 15)
+        textView.text = "Tell the world about yourself."
+        textView.textColor = .gray
+        textView.font = .systemFont(ofSize: 16, weight: .regular)
+        return textView
+    }()
+    
+    private let submitButton: UIButton = {
+        let button = UIButton(type: .system)
+        button.translatesAutoresizingMaskIntoConstraints = false
+        button.setTitle("Submit", for: .normal)
+        button.tintColor = .white
+        button.titleLabel?.font = .systemFont(ofSize: 16, weight: .bold)
+        button.backgroundColor = UIColor(red: 29/255, green: 161/255, blue: 242/255, alpha: 1)
+        button.layer.masksToBounds = true
+        button.layer.cornerRadius = 25
+        button.isEnabled = false
+        return button
+    }()
+    
+    private let photoPicker: PHPickerViewController = {
+        var configuration = PHPickerConfiguration()
+        configuration.filter = .images
+        configuration.selectionLimit = 1
+        let photoPicker = PHPickerViewController(configuration: configuration)
+        return photoPicker
     }()
     
     override func viewDidLoad() {
@@ -83,8 +117,29 @@ class ProfileDataFormViewController: UIViewController {
         scrollView.addSubview(avatarPracebolderImageView)
         scrollView.addSubview(displayNameTextField)
         scrollView.addSubview(userNameTextField)
+        scrollView.addSubview(bioTextView)
+        scrollView.addSubview(submitButton)
+        
+        bioTextView.delegate = self
+        displayNameTextField.delegate = self
+        userNameTextField.delegate = self
+        photoPicker.delegate = self
         
         configureConstraints()
+        addTapGesture()
+    }
+    
+    private func addTapGesture() {
+        view.addGestureRecognizer(UITapGestureRecognizer(target: self, action: #selector(didTapToDismiss)))
+        avatarPracebolderImageView.addGestureRecognizer(UITapGestureRecognizer(target: self, action: #selector(didTapToUpload)))
+    }
+    
+    @objc private func didTapToUpload() {
+        present(photoPicker, animated: true)
+    }
+    
+    @objc private func didTapToDismiss() {
+        view.endEditing(true)
     }
     
     private func configureConstraints() {
@@ -111,9 +166,67 @@ class ProfileDataFormViewController: UIViewController {
             userNameTextField.trailingAnchor.constraint(equalTo: displayNameTextField.trailingAnchor),
             userNameTextField.topAnchor.constraint(equalTo: displayNameTextField.bottomAnchor, constant: 20),
             userNameTextField.heightAnchor.constraint(equalTo: displayNameTextField.heightAnchor),
+            
+            bioTextView.leadingAnchor.constraint(equalTo: displayNameTextField.leadingAnchor),
+            bioTextView.trailingAnchor.constraint(equalTo: displayNameTextField.trailingAnchor),
+            bioTextView.topAnchor.constraint(equalTo: userNameTextField.bottomAnchor, constant: 20),
+            bioTextView.heightAnchor.constraint(equalToConstant: 150),
+            
+            submitButton.leadingAnchor.constraint(equalTo: displayNameTextField.leadingAnchor),
+            submitButton.trailingAnchor.constraint(equalTo: displayNameTextField.trailingAnchor),
+            submitButton.heightAnchor.constraint(equalToConstant: 50),
+            submitButton.bottomAnchor.constraint(equalTo: view.keyboardLayoutGuide.topAnchor, constant: -20)
         ])
     }
+}
+
+extension ProfileDataFormViewController: UITextViewDelegate {
     
+    func textViewDidBeginEditing(_ textView: UITextView) {
+        
+        scrollView.setContentOffset(CGPoint(x: 0, y: textView.frame.origin.y - 100), animated: true)
+        
+        if textView.textColor == .gray {
+            textView.textColor = .label
+            textView.text = ""
+        }
+    }
     
+    func textViewDidEndEditing(_ textView: UITextView) {
+        scrollView.setContentOffset(CGPoint(x: 0, y: 0), animated: true)
+        
+        if textView.text.isEmpty {
+            textView.text = "Tell the world about yourself."
+            textView.textColor = .gray
+        }
+    }
+}
+
+extension ProfileDataFormViewController: UITextFieldDelegate {
     
+    func textFieldDidBeginEditing(_ textField: UITextField) {
+        scrollView.setContentOffset(CGPoint(x: 0, y: textField.frame.origin.y - 100), animated: true)
+    }
+    
+    func textFieldDidEndEditing(_ textField: UITextField) {
+        scrollView.setContentOffset(CGPoint(x: 0, y: 0), animated: true)
+        
+    }
+}
+
+extension ProfileDataFormViewController: PHPickerViewControllerDelegate {
+    
+    func picker(_ picker: PHPickerViewController, didFinishPicking results: [PHPickerResult]) {
+        picker.dismiss(animated: true)
+        
+        for result in results {
+            result.itemProvider.loadObject(ofClass: UIImage.self) { [weak self] object, error in
+                if let image = object as? UIImage {
+                    DispatchQueue.main.async {
+                        self?.avatarPracebolderImageView.image = image
+                    }
+                }
+            }
+        }
+    }
 }
